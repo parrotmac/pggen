@@ -63,6 +63,7 @@ type OutputColumn struct {
 type Inferrer struct {
 	conn        *pgx.Conn
 	typeFetcher *pg.TypeFetcher
+	oidFetcher  *pg.OIDFetcher
 }
 
 // NewInferrer infers information about a query by running the query on
@@ -71,6 +72,7 @@ func NewInferrer(conn *pgx.Conn) *Inferrer {
 	return &Inferrer{
 		conn:        conn,
 		typeFetcher: pg.NewTypeFetcher(conn),
+		oidFetcher:  pg.NewOIDFetcher(conn),
 	}
 }
 
@@ -142,6 +144,24 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 			return nil, nil, fmt.Errorf(msg+"\n    %w", pgErr)
 		}
 		return nil, nil, fmt.Errorf("prepare query to infer types: %w", err)
+	}
+
+	tableOIDs := make(map[uint32]struct{})
+	for _, desc := range stmtDesc.Fields {
+		tableOIDs[desc.TableOID] = struct{}{}
+	}
+	tableOIDList := make([]uint32, 0, len(tableOIDs))
+	for oid := range tableOIDs {
+		if oid <= 0 {
+			continue
+		}
+		tableOIDList = append(tableOIDList, oid)
+	}
+
+	// Fetch table names.
+	tableNames, err := inf.oidFetcher.FindTableNamesForOIDs(ctx, tableOIDList...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetch table names: %w", err)
 	}
 
 	// Validate.

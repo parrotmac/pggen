@@ -75,7 +75,8 @@ const (
 
 // Pragmas are options to control generated code for a single query.
 type Pragmas struct {
-	ProtobufType string // package qualified protocol buffer message type to use for output rows
+	ProtobufType     string            // package qualified protocol buffer message type to use for output rows
+	TableTypeMapping map[string]string // map of table name to type name to use for output rows
 }
 
 // An query is represented by one of the following query nodes.

@@ -295,6 +295,12 @@ func parsePragmas(allPragmas string) (ast.Pragmas, error) {
 				return ast.Pragmas{}, err
 			}
 			qp.ProtobufType = p
+		case "table-type-mapping":
+			m, err := validateTableTypeMapping(val)
+			if err != nil {
+				return ast.Pragmas{}, err
+			}
+			qp.TableTypeMapping = m
 		default:
 			return ast.Pragmas{}, fmt.Errorf("unsupported pramga %q", key)
 		}
@@ -325,6 +331,40 @@ func validateProtoMsgType(val string) (string, error) {
 		}
 	}
 	return val, nil
+}
+
+func validateTableTypeMapping(val string) (map[string]string, error) {
+	// take a string like "foo=bar,baz=qux" and turn it into a map.
+	// ensure that both portions of the mapping are valid identifiers
+	m := map[string]string{}
+	for _, s := range strings.Split(val, ",") {
+		parts := strings.Split(s, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid table-type-mapping, expected format foo=bar,baz=qux; got %q", val)
+		}
+		for _, v := range parts {
+			if !isValidIdentifier(v) {
+				return nil, fmt.Errorf("invalid table-type-mapping, expected identifier; got %q", v)
+			}
+		}
+		m[parts[0]] = parts[1]
+	}
+	return m, nil
+}
+
+func isValidIdentifier(s string) bool {
+	for i, v := range s {
+		switch {
+		case ('a' <= v && v <= 'z') || ('A' <= v && v <= 'Z'):
+		case ('0' <= v && v <= '9') || v == '_':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // argPos is the name and position of expression like pggen.arg('foo').
